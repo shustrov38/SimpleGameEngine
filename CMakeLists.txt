@@ -8,7 +8,20 @@ set(SOURCE_FILES
         Window.h
         Window.cpp
         Engine.cpp
-        Engine.h)
+        Engine.h
+        World.cpp
+        World.h
+        Object.cpp
+        Object.h
+        Polygon.cpp
+        Polygon.h
+        Wall.cpp
+        Wall.h
+        Player.cpp
+        Player.h
+        Utilities.cpp
+        Utilities.h
+)
 
 add_executable(${PROJECT_NAME} ${SOURCE_FILES})
 

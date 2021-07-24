@@ -13,22 +13,27 @@ Engine::~Engine() {
 }
 
 void Engine::handleInput() {
-
+    m_world.handleInput();
 }
 
 void Engine::update() {
-    m_window.update();
-    float timeStep = 1.0f / 30;
+    int FPS = 30;
+    int timeStep = 1000 / FPS;
 
-    if (m_elapsedTime >= timeStep) {
-        m_elapsedTime -= timeStep;
+    m_window.update();
+    if (getElapsedTime().asMilliseconds() >= timeStep) {
+        handleInput();
+        m_world.update();
+        restartClock();
     }
+
+    render();
 }
 
 void Engine::render() {
     m_window.beginDraw();
 
-    // draw
+    m_world.render(getWindow());
 
     m_window.endDraw();
 }

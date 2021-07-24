@@ -6,6 +6,7 @@
 #define SIMPLEGAMEENGINE_ENGINE_H
 
 #include "Window.h"
+#include "World.h"
 
 class Engine {
 public:
@@ -31,6 +32,7 @@ public:
 
 private:
     Window m_window;
+    World m_world;
 
     float m_elapsedTime;
     sf::Clock m_clock;
