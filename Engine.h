@@ -18,7 +18,7 @@ public:
 
     void handleInput();
 
-    void update();
+    void update(int FPS = 30);
 
     void render();
 

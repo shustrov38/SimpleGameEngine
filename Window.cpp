@@ -66,6 +66,10 @@ void Window::draw(sf::Drawable &drawable) {
     m_window.draw(drawable);
 }
 
+void Window::setTitle(std::string_view newTitle) {
+    m_window.setTitle(newTitle.data());
+}
+
 void Window::setup(std::string_view title, const sf::Vector2u &size) {
     m_window.setFramerateLimit(60);
     m_windowTitle = title;

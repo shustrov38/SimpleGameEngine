@@ -4,7 +4,10 @@
 
 #include "Engine.h"
 
-Engine::Engine() : m_window() {}
+Engine::Engine() : m_window() {
+    m_clock.restart();
+    m_elapsedTime = 0.f;
+}
 
 Engine::Engine(std::string_view title, sf::Vector2u &size) : m_window(title, size) {}
 
@@ -16,18 +19,16 @@ void Engine::handleInput() {
     m_world.handleInput();
 }
 
-void Engine::update() {
-    int FPS = 30;
-    int timeStep = 1000 / FPS;
+void Engine::update(int FPS) {
+    const float timeStep = 1.f / float(FPS);
 
     m_window.update();
-    if (getElapsedTime().asMilliseconds() >= timeStep) {
-        handleInput();
-        m_world.update();
-        restartClock();
-    }
 
-    render();
+    if (m_elapsedTime >= timeStep) {
+        m_world.update();
+
+        m_elapsedTime -= timeStep;
+    }
 }
 
 void Engine::render() {

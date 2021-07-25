@@ -41,6 +41,8 @@ public:
 
     void draw(sf::Drawable &drawable);
 
+    void setTitle(std::string_view newTitle);
+
 private:
     void setup(std::string_view title, const sf::Vector2u &size);
 
