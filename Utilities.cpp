@@ -19,6 +19,11 @@ float utl::angle(const sf::Vector2f &source) {
     return std::atan2(float(source.y), float(source.x));
 }
 
+sf::Vector2f utl::increasedAngle(const sf::Vector2f &source, float addition) {
+    const float phi = utl::angle(source) + degrees2radians(addition);
+    return sf::Vector2f(std::cos(phi), std::sin(phi));
+}
+
 sf::Vector2f utl::normalize(const sf::Vector2f &source) {
     float length = std::sqrt((source.x * source.x) + (source.y * source.y));
     if (length < eps) { return sf::Vector2f(source.x / length, source.y / length); }
@@ -28,8 +33,9 @@ sf::Vector2f utl::normalize(const sf::Vector2f &source) {
 float utl::distance(const sf::Vector2f &a, const sf::Vector2f &b) {
     return std::sqrt((a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y));
 }
+
 std::optional<sf::Vector2f> utl::castRayToBoundary(const sf::Vector2f &p1, const sf::Vector2f &p2,
-                                              const sf::Vector2f &p3, const sf::Vector2f &p4) {
+                                                   const sf::Vector2f &p3, const sf::Vector2f &p4) {
     /*
      * for more information see website:
      * https://en.wikipedia.org/wiki/Line–line_intersection#Given_two_points_on_each_line_segment

@@ -16,7 +16,7 @@ Engine::~Engine() {
 }
 
 void Engine::handleInput() {
-    m_world.handleInput();
+
 }
 
 void Engine::update(int FPS) {
@@ -25,8 +25,8 @@ void Engine::update(int FPS) {
     m_window.update();
 
     if (m_elapsedTime >= timeStep) {
+        m_world.handleInput();
         m_world.update();
-
         m_elapsedTime -= timeStep;
     }
 }

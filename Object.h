@@ -8,7 +8,10 @@
 #include "Window.h"
 #include <vector>
 
+class Object;
+
 template<class T> using sptr = std::shared_ptr<T>;
+using vecPObject = std::vector<sptr<Object>>;
 
 class Object {
 public:

@@ -8,6 +8,7 @@
 
 #include "Utilities.h"
 #include "Wall.h"
+#include "Enumerated.h"
 
 Player::Player() {
     className = typeid(this).name();
@@ -19,21 +20,22 @@ Player::Player() {
     m_modelRadius = 10;
 
     m_viewDistance = 200;
-    m_viewAngle = 100; // degrees
-    m_viewResolution = 50;
+    m_viewAngle = 80; // degrees
+    m_viewResolution = 300;
 
     // normalize input parameters
     m_viewAngle = utl::degrees2radians(m_viewAngle);
     m_viewResolution += m_viewResolution & 1 ^ 1;
 
-    m_viewBoundaryPoints.resize(m_viewResolution);
+    m_viewRayPoints.resize(m_viewResolution);
+    m_viewRayIsUsed.resize(m_viewResolution);
 
     m_polygon.setRadius(m_modelRadius);
     applyColors();
 }
 
 void Player::render(Window *window) {
-    for (const auto &coord : m_viewBoundaryPoints) {
+    for (const auto &coord : m_viewRayPoints) {
         sf::VertexArray line(sf::Lines, 2);
         line[0].position = m_position;
         line[1].position = coord;
@@ -53,9 +55,7 @@ void Player::setPosition(const sf::Vector2f &newPosition) {
 }
 
 void Player::rotate(int direction) {
-    static const float step = utl::degrees2radians(5);
-    const float phi = utl::angle(m_viewDirection) + float(direction) * step;
-    m_viewDirection = sf::Vector2f(std::cos(phi), std::sin(phi));
+    m_viewDirection = utl::increasedAngle(m_viewDirection, float(direction) * 5);
 }
 
 void Player::move(const sf::Vector2f &offset) {
@@ -63,14 +63,14 @@ void Player::move(const sf::Vector2f &offset) {
     m_position += offset;
 }
 
-std::vector<sptr<Object>> Player::getCollisionCandidates(const std::vector<sptr<Object>> &worldObjects) {
-    std::vector<sptr<Object>> candidates;
+void Player::updateCollisionCandidates(const vecPObject &worldObjects) {
+    m_collisionCandidates.clear();
 
     float minx, miny, maxx, maxy;
     minx = maxx = m_position.x;
     miny = maxy = m_position.y;
 
-    for (const auto &coord : m_viewBoundaryPoints) {
+    for (const auto &coord : m_viewRayPoints) {
         maxx = std::max(maxx, coord.x);
         minx = std::min(minx, coord.x);
         maxy = std::max(maxy, coord.y);
@@ -86,11 +86,9 @@ std::vector<sptr<Object>> Player::getCollisionCandidates(const std::vector<sptr<
         auto rect = wall->getPolygon().getLocalBounds();
 
         if (rect.intersects(lineRect)) {
-            candidates.emplace_back(wall);
+            m_collisionCandidates.emplace_back(wall);
         }
     }
-
-    return candidates;
 }
 
 void Player::resetRays() {
@@ -99,20 +97,24 @@ void Player::resetRays() {
     float alpha = directionAngle - float(m_viewResolution - 1) / 2 * step;
 
     for (int i = 0; i < m_viewResolution; ++i) {
-        m_viewBoundaryPoints[i] = m_position + m_viewDistance * sf::Vector2f(std::cos(alpha), std::sin(alpha));
+        m_viewRayIsUsed[i] = false;
+        m_viewRayPoints[i] = m_position + m_viewDistance * sf::Vector2f(std::cos(alpha), std::sin(alpha));
         alpha += step;
     }
 }
 
-void Player::look(const std::vector<sptr<Object>> &candidates) {
+void Player::look() {
     resetRays();
+    m_objectsPlayerSee.clear();
 
-    for (const auto &polygon : candidates) {
+    for (const auto &polygon : m_collisionCandidates) {
 
         const auto wall = std::dynamic_pointer_cast<Wall>(polygon);
         const auto poly = wall->getPolygon();
 
-        for (auto &rayPoint: m_viewBoundaryPoints) {
+        bool isCollidedWithPolygon = false;
+
+        for (auto [rayPointIndex, rayPoint]: enumerated(m_viewRayPoints)) {
 
             std::optional<sf::Vector2f> intersectionPoint = std::nullopt;
 
@@ -125,15 +127,72 @@ void Player::look(const std::vector<sptr<Object>> &candidates) {
 
                 if (!point.has_value()) continue;
 
-                float prevDist = utl::distance(m_position, intersectionPoint.value_or(point.value()));
-                float newDist = utl::distance(m_position, point.value());
+                const float prevDist = utl::distance(m_position, intersectionPoint.value_or(point.value()));
+                const float newDist = utl::distance(m_position, point.value());
 
                 if (newDist <= m_viewDistance && (!intersectionPoint.has_value() || newDist < prevDist)) {
+                    isCollidedWithPolygon = true;
                     intersectionPoint = point.value();
                 }
             }
 
-            rayPoint = intersectionPoint.value_or(rayPoint);
+            if (intersectionPoint.has_value()) {
+                rayPoint = intersectionPoint.value();
+                m_viewRayIsUsed[rayPointIndex] = true;
+            }
         }
+
+        if (isCollidedWithPolygon) {
+            m_objectsPlayerSee.emplace_back(polygon);
+        }
+    }
+}
+
+const std::vector<sf::Vector2f> &Player::getMViewRayPoints() const {
+    return m_viewRayPoints;
+}
+
+size_t Player::getMViewResolution() const {
+    return m_viewResolution;
+}
+
+const vecPObject &Player::getMObjectsPlayerSee() const {
+    return m_objectsPlayerSee;
+}
+
+const std::vector<bool> &Player::getMViewRayIsUsed() const {
+    return m_viewRayIsUsed;
+}
+
+float Player::getMViewDistance() const {
+    return m_viewDistance;
+}
+
+sf::Vector2f Player::getMPosition() const {
+    return m_position;
+}
+
+void Player::handleInput() {
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::A)) {
+        rotate(ROTATE_LEFT);
+    }
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::D)) {
+        rotate(ROTATE_RIGHT);
+    }
+
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Up)) {
+        move(STEP_SIZE * utl::increasedAngle(m_viewDirection, 0));
+    }
+
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Down)) {
+        move(STEP_SIZE * utl::increasedAngle(m_viewDirection, 180));
+    }
+
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Left)) {
+        move(STEP_SIZE * utl::increasedAngle(m_viewDirection, -90));
+    }
+
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Right)) {
+        move(STEP_SIZE * utl::increasedAngle(m_viewDirection, 90));
     }
 }

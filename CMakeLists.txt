@@ -21,7 +21,7 @@ set(SOURCE_FILES
         Player.h
         Utilities.cpp
         Utilities.h
-)
+        Enumerated.h)
 
 add_executable(${PROJECT_NAME} ${SOURCE_FILES})
 

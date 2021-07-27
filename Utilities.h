@@ -28,6 +28,13 @@ namespace utl {
     float angle(const sf::Vector2f &source);
 
     /*!
+     * @param source - source angle
+     * @param addition - angle to add
+     * @return increased angle
+     */
+    sf::Vector2f increasedAngle(const sf::Vector2f &source, float addition);
+
+    /*!
      * @param source - radius vector
      * @return normalized radius vector
      */

@@ -12,7 +12,7 @@ public:
     static const int ROTATE_LEFT = -1;
     static const int ROTATE_RIGHT = 1;
 
-    static const int STEP_SIZE = 3;
+    static constexpr float STEP_SIZE = 3;
 
     explicit Player();
 
@@ -20,13 +20,27 @@ public:
 
     void setPosition(const sf::Vector2f &newPosition) override;
 
-    void look(const std::vector<sptr<Object>> &candidates);
+    void look();
+
+    const std::vector<sf::Vector2f> &getMViewRayPoints() const;
+
+    const std::vector<bool> &getMViewRayIsUsed() const;
+
+    const vecPObject &getMObjectsPlayerSee() const;
 
     void rotate(int direction);
 
     void move(const sf::Vector2f &offset) override;
 
-    std::vector<sptr<Object>> getCollisionCandidates(const std::vector<sptr<Object>> &worldObjects);
+    void updateCollisionCandidates(const vecPObject &worldObjects);
+
+    size_t getMViewResolution() const;
+
+    float getMViewDistance() const;
+
+    sf::Vector2f getMPosition() const;
+
+    void handleInput();
 
 private:
     void resetRays();
@@ -34,12 +48,18 @@ private:
 protected:
     float m_modelRadius;
 
+    // render logic variables
+
     sf::Vector2f m_viewDirection = {1, 0};
     float m_viewDistance;
     float m_viewAngle;
-    std::size_t m_viewResolution;
+    size_t m_viewResolution;
 
-    std::vector<sf::Vector2f> m_viewBoundaryPoints;
+    std::vector<sf::Vector2f> m_viewRayPoints;
+    std::vector<bool> m_viewRayIsUsed;
+
+    vecPObject m_collisionCandidates;
+    vecPObject m_objectsPlayerSee;
 };
 
 
