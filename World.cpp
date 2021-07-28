@@ -4,22 +4,36 @@
 
 #include "World.h"
 #include "Utilities.h"
+#include "MinimapBorder.h"
+
+using vecCoord = std::vector<sf::Vector2f>;
 
 World::World() {
-    std::vector<sf::Vector2f> points = {
-            {60, 0},
-            {0,  0},
-            {0,  60}
+    // set up world objects (including world borders)
+
+    vecCoord borderRect = {
+            {0,   0},
+            {200, 0},
+            {200, 200},
+            {0,   200}
     };
+    m_worldObjects.emplace_back(std::make_shared<MinimapBorder>(borderRect));
 
-    m_worldObjects.emplace_back(std::make_shared<Wall>(points));
-    m_worldObjects.back()->move({200, 100});
+    vecCoord bigTriangle = {
+            {40,  40},
+            {100, 50},
+            {20,  150}
+    };
+    m_worldObjects.emplace_back(std::make_shared<Wall>(bigTriangle));
 
-    m_worldObjects.emplace_back(std::make_shared<Wall>(points));
-    m_worldObjects.back()->move({350, 200});
+    vecCoord tinyTriangle = {
+            {150, 150},
+            {170, 150},
+            {150, 180}
+    };
+    m_worldObjects.emplace_back(std::make_shared<Wall>(tinyTriangle));
 
-
-    player.setPosition({300, 300});
+    player.setPosition({100, 100});
 }
 
 World::~World() {
@@ -46,7 +60,6 @@ void World::render(Window *window) {
     const auto rays = player.getMViewRayPoints();
     const auto used = player.getMViewRayIsUsed();
 
-
     for (int i = 0; i < viewResolution; ++i) {
         if (!used[i]) continue;
         float distanceCoefficient = 10.f / utl::distance(player.getMPosition(), rays[i]);
@@ -61,11 +74,11 @@ void World::render(Window *window) {
         window->draw(rect);
     }
 
-//    for (const auto &worldObject : m_worldObjects) {
-//        worldObject->render(window);
-//    }
-//
-//    player.render(window);
+    for (const auto &worldObject : m_worldObjects) {
+        worldObject->render(window);
+    }
+
+    player.render(window);
 }
 
 void World::update() {

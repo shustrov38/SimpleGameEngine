@@ -8,15 +8,26 @@
 
 [comment]: <> (### Removed)
 
+## 1.1.1 - 28-07-2021
+
+### Added 
+
+- minimap of the world for debugging purposes
+- debug tools for `Player::look()` function
+
+### Changed
+
+- fixed issue when the rays could pass through objects (`Player::look()`) 
+
 ## 1.1.0 - 27-07-2021
 
 ### Added
 
-- enumerated wrapper for range based loops
+-  `enumerated(...)` wrapper for range based loops
 
 ### Changed 
 
-- world render system (now it is based on rays and can render 3d picture)
+- `World` render system (now it is based on rays and can render 3d picture)
 
 ## 1.0.0 - 24-07-2021
 

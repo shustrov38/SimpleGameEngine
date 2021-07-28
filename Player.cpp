@@ -8,7 +8,22 @@
 
 #include "Utilities.h"
 #include "Wall.h"
+#include "MinimapBorder.h"
 #include "Enumerated.h"
+
+
+/*!
+ * WARNING
+ *
+ * Turning _DEBUG on might cause huge performance drops
+ *
+ * WARNING
+ */
+#ifdef _DEBUG
+#define debug std::cout
+#else
+#define debug 0 && std::cout
+#endif
 
 Player::Player() {
     className = typeid(this).name();
@@ -17,7 +32,7 @@ Player::Player() {
     m_outlineColor = sf::Color::White;
     m_outlineThickness = 2;
 
-    m_modelRadius = 10;
+    m_modelRadius = 4;
 
     m_viewDistance = 200;
     m_viewAngle = 80; // degrees
@@ -35,12 +50,26 @@ Player::Player() {
 }
 
 void Player::render(Window *window) {
-    for (const auto &coord : m_viewRayPoints) {
-        sf::VertexArray line(sf::Lines, 2);
-        line[0].position = m_position;
-        line[1].position = coord;
+//    for (const auto &coord : m_viewRayPoints) {
+//        sf::VertexArray line(sf::Lines, 2);
+//        line[0].position = m_position;
+//        line[1].position = coord;
+//        window->draw(line);
+//    }
+    sf::VertexArray line(sf::Lines, 2);
+    line[0].position = m_position;
+
+    line[1].position = m_viewRayPoints.front();
+    window->draw(line);
+    line[1].position = m_viewRayPoints.back();
+    window->draw(line);
+
+    for (int i = 1; i < m_viewRayPoints.size(); ++i) {
+        line[0].position = m_viewRayPoints[i - 1];
+        line[1].position = m_viewRayPoints[i];
         window->draw(line);
     }
+
     window->draw(m_polygon);
 }
 
@@ -64,6 +93,11 @@ void Player::move(const sf::Vector2f &offset) {
 }
 
 void Player::updateCollisionCandidates(const vecPObject &worldObjects) {
+    const static std::vector<std::string> collidableClasses = {
+            typeid(Wall *).name(),
+            typeid(MinimapBorder *).name()
+    };
+
     m_collisionCandidates.clear();
 
     float minx, miny, maxx, maxy;
@@ -77,10 +111,13 @@ void Player::updateCollisionCandidates(const vecPObject &worldObjects) {
         miny = std::min(miny, coord.y);
     }
 
+
     const auto lineRect = sf::FloatRect(minx, miny, maxx - minx, maxy - miny);
 
     for (const auto &object : worldObjects) {
-        if (object->getClassName() != typeid(Wall *).name()) continue;
+        if (std::find(collidableClasses.begin(), collidableClasses.end(), object->getClassName()) ==
+            collidableClasses.end())
+            continue;
 
         auto wall = std::dynamic_pointer_cast<Wall>(object);
         auto rect = wall->getPolygon().getLocalBounds();
@@ -107,37 +144,57 @@ void Player::look() {
     resetRays();
     m_objectsPlayerSee.clear();
 
-    for (const auto &polygon : m_collisionCandidates) {
+    for (const auto [polygonIndex, polygon] : enumerated(m_collisionCandidates)) {
 
         const auto wall = std::dynamic_pointer_cast<Wall>(polygon);
         const auto poly = wall->getPolygon();
 
         bool isCollidedWithPolygon = false;
 
-        for (auto [rayPointIndex, rayPoint]: enumerated(m_viewRayPoints)) {
+        debug << "Polygon " << polygonIndex << ":" << std::endl;
 
-            std::optional<sf::Vector2f> intersectionPoint = std::nullopt;
+        for (auto[rayPointIndex, rayPoint]: enumerated(m_viewRayPoints)) {
+            debug << "\tRay " << rayPointIndex << ":" << std::endl;
 
-            for (int i = 0; i <= poly.getPointCount(); ++i) {
+            sf::Vector2f intersectionPoint = rayPoint;
 
-                const auto firstBoundaryPoint = poly.getPoint((i) % poly.getPointCount());
+            for (int i = 0; i < poly.getPointCount(); ++i) {
+                debug << "\t\tPolygon segment ["
+                          << (i + 0) % poly.getPointCount() << " "
+                          << (i + 1) % poly.getPointCount() << "]:"
+                          << std::endl;
+
+                const auto firstBoundaryPoint = poly.getPoint((i + 0) % poly.getPointCount());
                 const auto secondBoundaryPoint = poly.getPoint((i + 1) % poly.getPointCount());
 
-                auto point = utl::castRayToBoundary(m_position, rayPoint, firstBoundaryPoint, secondBoundaryPoint);
+                auto castResult = utl::castRayToBoundary(m_position, rayPoint, firstBoundaryPoint, secondBoundaryPoint);
 
-                if (!point.has_value()) continue;
+                if (!castResult.has_value()) {
+                    debug << "\t\t\tcontinue" << std::endl;
+                    continue;
+                }
 
-                const float prevDist = utl::distance(m_position, intersectionPoint.value_or(point.value()));
-                const float newDist = utl::distance(m_position, point.value());
+                const auto point = castResult.value();
 
-                if (newDist <= m_viewDistance && (!intersectionPoint.has_value() || newDist < prevDist)) {
+                debug << "\t\t\tcasted -> (" << point.x << ' ' << point.y << ")" << std::endl;
+
+                const float prevDist = utl::distance(m_position, intersectionPoint);
+                const float newDist = utl::distance(m_position, point);
+
+                debug << "\t\t\tdistance -> " << newDist << std::endl;
+
+                // there is no need to check the condition (newDist <= m_viewDistance) because
+                // intersection point is always equal to the correct ray point
+                if (newDist <= prevDist) {
+                    debug << "\t\t\t\tdistance changed" << std::endl;
                     isCollidedWithPolygon = true;
-                    intersectionPoint = point.value();
+                    intersectionPoint = point;
                 }
             }
 
-            if (intersectionPoint.has_value()) {
-                rayPoint = intersectionPoint.value();
+            // update ray if got new collision point
+            if (rayPoint != intersectionPoint) {
+                rayPoint = intersectionPoint;
                 m_viewRayIsUsed[rayPointIndex] = true;
             }
         }

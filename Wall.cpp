@@ -9,7 +9,7 @@ Wall::Wall(const std::vector<sf::Vector2f> &points) : Polygon(points) {
 
     m_fillColor = sf::Color::Red;
     m_outlineColor = sf::Color::White;
-    m_outlineThickness = 2;
+    m_outlineThickness = 1;
 
     applyColors();
 }
