@@ -5,7 +5,11 @@
 #include "Utilities.h"
 #include <cmath>
 
-const float eps = 1e-9;
+#include "Player.h"
+#include "Enumerated.h"
+
+const float eps = 1e-6;
+#define all(X) begin(X), end(X)
 
 float utl::radians2degrees(float radians) {
     return radians / M_PI * 180;
@@ -15,8 +19,10 @@ float utl::degrees2radians(float degrees) {
     return degrees / 180 * M_PI;
 }
 
-float utl::angle(const sf::Vector2f &source) {
-    return std::atan2(float(source.y), float(source.x));
+float utl::angle(const sf::Vector2f &source, bool norm) {
+    float phi = std::atan2(float(source.y), float(source.x));
+    if (norm && phi < 0) phi += 2 * M_PI;
+    return phi;
 }
 
 sf::Vector2f utl::increasedAngle(const sf::Vector2f &source, float addition) {
@@ -62,4 +68,26 @@ std::optional<sf::Vector2f> utl::castRayToBoundary(const sf::Vector2f &p1, const
     }
 
     return std::nullopt;
+}
+
+bool utl::isPointBelongsToBoundary(const sf::Vector2f &p, const sf::Vector2f &p1, const sf::Vector2f &p2) {
+    if (std::abs(p2.x - p1.x) <= eps || std::abs(p2.y - p1.y) <= eps) return false;
+    return std::abs((p.x - p1.x) / (p2.x - p1.x) - (p.y - p1.y) / (p2.y - p1.y)) <= eps;
+}
+
+void utl::iterateAllPolygonBoundaries(const vecPObject &objects, std::function<void(const sptr<Object> &, const sf::Vector2f &, const sf::Vector2f &)> &&func) {
+    for (auto[index, polygon] : enumerated(objects)) {
+        if (!std::count(all(Player::collidableClasses), polygon->getClassName())) continue;
+
+        const auto wall = std::dynamic_pointer_cast<Wall>(polygon);
+        const auto poly = wall->getPolygon();
+
+        for (int i = 0; i < poly.getPointCount(); ++i) {
+
+            const auto firstBoundaryPoint = poly.getPoint((i + 0) % poly.getPointCount());
+            const auto secondBoundaryPoint = poly.getPoint((i + 1) % poly.getPointCount());
+
+            func(wall, firstBoundaryPoint, secondBoundaryPoint);
+        }
+    }
 }

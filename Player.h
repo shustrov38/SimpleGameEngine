@@ -6,9 +6,13 @@
 #define SIMPLEGAMEENGINE_PLAYER_H
 
 #include "Object.h"
+#include "Wall.h"
+#include "MinimapBorder.h"
 
 class Player : public WorldObject<sf::CircleShape> {
 public:
+    static const std::vector<std::string> collidableClasses;
+
     static const int ROTATE_LEFT = -1;
     static const int ROTATE_RIGHT = 1;
 
@@ -18,27 +22,25 @@ public:
 
     void render(Window *window) override;
 
+    void renderPseudo3D(Window *window);
+
     void setPosition(const sf::Vector2f &newPosition) override;
 
-    void look();
+    void look(const vecPObject &objects);
 
     const std::vector<sf::Vector2f> &getMViewRayPoints() const;
-
-    const std::vector<bool> &getMViewRayIsUsed() const;
-
-    const vecPObject &getMObjectsPlayerSee() const;
 
     void rotate(int direction);
 
     void move(const sf::Vector2f &offset) override;
-
-    void updateCollisionCandidates(const vecPObject &worldObjects);
 
     size_t getMViewResolution() const;
 
     float getMViewDistance() const;
 
     sf::Vector2f getMPosition() const;
+
+    const std::vector<std::optional<polygonParameters>> &getMViewParameters() const;
 
     void handleInput();
 
@@ -54,12 +56,10 @@ protected:
     float m_viewDistance;
     float m_viewAngle;
     size_t m_viewResolution;
+    float m_viewProjectionDistance;
 
-    std::vector<sf::Vector2f> m_viewRayPoints;
-    std::vector<bool> m_viewRayIsUsed;
-
-    vecPObject m_collisionCandidates;
-    vecPObject m_objectsPlayerSee;
+    vecCoord m_viewRayPoints;
+    std::vector<std::optional<polygonParameters>> m_viewParameters;
 };
 
 

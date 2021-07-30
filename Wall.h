@@ -9,7 +9,7 @@
 
 class Wall : public Polygon {
 public:
-    explicit Wall(const std::vector<sf::Vector2f> &points);
+    explicit Wall(const std::vector<sf::Vector2f> &points, sf::Color fillColor);
 
     void render(Window *window) override;
 };

@@ -12,6 +12,7 @@ class Object;
 
 template<class T> using sptr = std::shared_ptr<T>;
 using vecPObject = std::vector<sptr<Object>>;
+using vecCoord = std::vector<sf::Vector2f>;
 
 class Object {
 public:
@@ -44,6 +45,10 @@ public:
 
     T getPolygon() {
         return m_polygon;
+    }
+
+    const sf::Color &getMFillColor() const {
+        return m_fillColor;
     }
 
 protected:

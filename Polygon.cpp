@@ -4,12 +4,14 @@
 
 #include "Polygon.h"
 
-Polygon::Polygon(const std::vector<sf::Vector2f> &points) {
+Polygon::Polygon(const std::vector<sf::Vector2f> &points, sf::Color fillColor) {
     m_polygon.setPointCount(points.size());
 
     for (int i = 0; i < points.size(); ++i) {
         m_polygon.setPoint(i, points[i]);
     }
+
+    m_fillColor = fillColor;
 }
 
 void Polygon::setPosition(const sf::Vector2f &newPosition) {

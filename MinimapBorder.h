@@ -9,7 +9,7 @@
 
 class MinimapBorder : public Wall {
 public:
-    explicit MinimapBorder(const std::vector<sf::Vector2f> &points);
+    explicit MinimapBorder(const std::vector<sf::Vector2f> &points, sf::Color fillColor);
 };
 
 

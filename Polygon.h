@@ -9,12 +9,23 @@
 
 class Polygon : public WorldObject<sf::ConvexShape> {
 public:
-    explicit Polygon(const std::vector<sf::Vector2f> &points);
+    explicit Polygon(const std::vector<sf::Vector2f> &points, sf::Color fillColor = sf::Color::Red);
 
     void move(const sf::Vector2f &offset) override;
 
 private:
     void setPosition(const sf::Vector2f &newPosition) override;
+};
+
+enum class polygonParametersList {
+
+};
+
+struct polygonParameters {
+    sf::Color color;
+
+    explicit polygonParameters(const sptr<Polygon> &polygon) :
+            color(polygon->getMFillColor()) {}
 };
 
 

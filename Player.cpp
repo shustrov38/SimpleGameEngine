@@ -5,18 +5,15 @@
 #include "Player.h"
 
 #include <cmath>
+#include <iomanip>
 
 #include "Utilities.h"
-#include "Wall.h"
-#include "MinimapBorder.h"
 #include "Enumerated.h"
 
 
 /*!
  * WARNING
- *
  * Turning _DEBUG on might cause huge performance drops
- *
  * WARNING
  */
 #ifdef _DEBUG
@@ -24,6 +21,11 @@
 #else
 #define debug 0 && std::cout
 #endif
+
+const std::vector<std::string> Player::collidableClasses = {
+        typeid(Wall *).name(),
+        typeid(MinimapBorder *).name()
+};
 
 Player::Player() {
     className = typeid(this).name();
@@ -34,28 +36,25 @@ Player::Player() {
 
     m_modelRadius = 4;
 
-    m_viewDistance = 200;
-    m_viewAngle = 80; // degrees
-    m_viewResolution = 300;
+    m_viewDistance = 300.f;
+    m_viewAngle = 60.f; // degrees
+    m_viewResolution = 100;
+    m_viewProjectionDistance = 10.f;
 
     // normalize input parameters
     m_viewAngle = utl::degrees2radians(m_viewAngle);
     m_viewResolution += m_viewResolution & 1 ^ 1;
 
     m_viewRayPoints.resize(m_viewResolution);
-    m_viewRayIsUsed.resize(m_viewResolution);
+    m_viewParameters.resize(m_viewResolution);
 
     m_polygon.setRadius(m_modelRadius);
     applyColors();
+
+    resetRays();
 }
 
 void Player::render(Window *window) {
-//    for (const auto &coord : m_viewRayPoints) {
-//        sf::VertexArray line(sf::Lines, 2);
-//        line[0].position = m_position;
-//        line[1].position = coord;
-//        window->draw(line);
-//    }
     sf::VertexArray line(sf::Lines, 2);
     line[0].position = m_position;
 
@@ -71,6 +70,37 @@ void Player::render(Window *window) {
     }
 
     window->draw(m_polygon);
+}
+
+void Player::renderPseudo3D(Window *window) {
+    auto[width, height] = sf::Vector2f(window->getWindowSize());
+
+    float rectWidth = width / m_viewResolution;
+
+    for (const auto &[i, collisionPoint] : enumerated(m_viewRayPoints)) {
+        if (!m_viewParameters[i].has_value()) continue;
+
+        float rayAngle = utl::angle(collisionPoint - m_position);
+        float viewDirectionAngle = utl::angle(m_viewDirection);
+        float cosineCoefficient = std::cos(rayAngle - viewDirectionAngle);
+
+        float trueDistance = utl::distance(m_position, collisionPoint);
+        float projectionDistance = trueDistance * cosineCoefficient;
+
+        float distanceCoefficient = m_viewProjectionDistance / projectionDistance;
+
+        float rectHeight = 1000.f * distanceCoefficient;
+
+        sf::RectangleShape rect({rectWidth, rectHeight});
+        rect.setPosition({rectWidth * i, (height - rectHeight) / 2});
+
+        auto color = m_viewParameters[i]->color;
+        float colorCoefficient = 1.f - utl::distance(m_position, collisionPoint) / m_viewDistance;
+        color.a = sf::Uint8(255.f * colorCoefficient);
+        rect.setFillColor(color);
+
+        window->draw(rect);
+    }
 }
 
 void Player::setPosition(const sf::Vector2f &newPosition) {
@@ -92,117 +122,41 @@ void Player::move(const sf::Vector2f &offset) {
     m_position += offset;
 }
 
-void Player::updateCollisionCandidates(const vecPObject &worldObjects) {
-    const static std::vector<std::string> collidableClasses = {
-            typeid(Wall *).name(),
-            typeid(MinimapBorder *).name()
-    };
-
-    m_collisionCandidates.clear();
-
-    float minx, miny, maxx, maxy;
-    minx = maxx = m_position.x;
-    miny = maxy = m_position.y;
-
-    for (const auto &coord : m_viewRayPoints) {
-        maxx = std::max(maxx, coord.x);
-        minx = std::min(minx, coord.x);
-        maxy = std::max(maxy, coord.y);
-        miny = std::min(miny, coord.y);
-    }
-
-
-    const auto lineRect = sf::FloatRect(minx, miny, maxx - minx, maxy - miny);
-
-    for (const auto &object : worldObjects) {
-        if (std::find(collidableClasses.begin(), collidableClasses.end(), object->getClassName()) ==
-            collidableClasses.end())
-            continue;
-
-        auto wall = std::dynamic_pointer_cast<Wall>(object);
-        auto rect = wall->getPolygon().getLocalBounds();
-
-        if (rect.intersects(lineRect)) {
-            m_collisionCandidates.emplace_back(wall);
-        }
-    }
-}
-
 void Player::resetRays() {
     float step = m_viewAngle / float(m_viewResolution);
     float directionAngle = utl::angle(m_viewDirection);
     float alpha = directionAngle - float(m_viewResolution - 1) / 2 * step;
 
     for (int i = 0; i < m_viewResolution; ++i) {
-        m_viewRayIsUsed[i] = false;
         m_viewRayPoints[i] = m_position + m_viewDistance * sf::Vector2f(std::cos(alpha), std::sin(alpha));
         alpha += step;
     }
 }
 
-void Player::look() {
+void Player::look(const vecPObject &objects) {
     resetRays();
-    m_objectsPlayerSee.clear();
+    for (auto &e: m_viewParameters) e.reset();
 
-    for (const auto [polygonIndex, polygon] : enumerated(m_collisionCandidates)) {
+    auto processBoundary = [&](const sptr<Object> &polygon, const sf::Vector2f &a, const sf::Vector2f &b) -> void {
+        const auto poly = std::dynamic_pointer_cast<Wall>(polygon);
+        auto polyColor = poly->getMFillColor();
 
-        const auto wall = std::dynamic_pointer_cast<Wall>(polygon);
-        const auto poly = wall->getPolygon();
+        // cast all rays to current boundary
+        for (const auto &[i, rayPoint]: enumerated(m_viewRayPoints)) {
+            auto castResult = utl::castRayToBoundary(m_position, rayPoint, a, b);
+            auto point = castResult.value_or(rayPoint);
+            auto prevDist = utl::distance(m_position, rayPoint);
+            auto newDist = utl::distance(m_position, point);
+            if (newDist < prevDist) {
+                rayPoint = point;
 
-        bool isCollidedWithPolygon = false;
-
-        debug << "Polygon " << polygonIndex << ":" << std::endl;
-
-        for (auto[rayPointIndex, rayPoint]: enumerated(m_viewRayPoints)) {
-            debug << "\tRay " << rayPointIndex << ":" << std::endl;
-
-            sf::Vector2f intersectionPoint = rayPoint;
-
-            for (int i = 0; i < poly.getPointCount(); ++i) {
-                debug << "\t\tPolygon segment ["
-                          << (i + 0) % poly.getPointCount() << " "
-                          << (i + 1) % poly.getPointCount() << "]:"
-                          << std::endl;
-
-                const auto firstBoundaryPoint = poly.getPoint((i + 0) % poly.getPointCount());
-                const auto secondBoundaryPoint = poly.getPoint((i + 1) % poly.getPointCount());
-
-                auto castResult = utl::castRayToBoundary(m_position, rayPoint, firstBoundaryPoint, secondBoundaryPoint);
-
-                if (!castResult.has_value()) {
-                    debug << "\t\t\tcontinue" << std::endl;
-                    continue;
-                }
-
-                const auto point = castResult.value();
-
-                debug << "\t\t\tcasted -> (" << point.x << ' ' << point.y << ")" << std::endl;
-
-                const float prevDist = utl::distance(m_position, intersectionPoint);
-                const float newDist = utl::distance(m_position, point);
-
-                debug << "\t\t\tdistance -> " << newDist << std::endl;
-
-                // there is no need to check the condition (newDist <= m_viewDistance) because
-                // intersection point is always equal to the correct ray point
-                if (newDist <= prevDist) {
-                    debug << "\t\t\t\tdistance changed" << std::endl;
-                    isCollidedWithPolygon = true;
-                    intersectionPoint = point;
-                }
-            }
-
-            // update ray if got new collision point
-            if (rayPoint != intersectionPoint) {
-                rayPoint = intersectionPoint;
-                m_viewRayIsUsed[rayPointIndex] = true;
+                // update params
+                m_viewParameters[i] = polygonParameters(poly);
             }
         }
+    };
 
-        if (isCollidedWithPolygon) {
-            m_objectsPlayerSee.emplace_back(polygon);
-        }
-    }
+    utl::iterateAllPolygonBoundaries(objects, processBoundary);
 }
 
 const std::vector<sf::Vector2f> &Player::getMViewRayPoints() const {
@@ -213,20 +167,16 @@ size_t Player::getMViewResolution() const {
     return m_viewResolution;
 }
 
-const vecPObject &Player::getMObjectsPlayerSee() const {
-    return m_objectsPlayerSee;
-}
-
-const std::vector<bool> &Player::getMViewRayIsUsed() const {
-    return m_viewRayIsUsed;
-}
-
 float Player::getMViewDistance() const {
     return m_viewDistance;
 }
 
 sf::Vector2f Player::getMPosition() const {
     return m_position;
+}
+
+const std::vector<std::optional<polygonParameters>> &Player::getMViewParameters() const {
+    return m_viewParameters;
 }
 
 void Player::handleInput() {
